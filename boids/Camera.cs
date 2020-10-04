@@ -11,6 +11,14 @@ namespace boids
 		RIGHT
 	}
 
+	public enum CameraType
+	{
+		Behind,
+		Parallel,
+		Tower,
+		Free
+	}
+
 	public class Camera
 	{
 		public Vector3 Position { get; set; }
@@ -23,18 +31,106 @@ namespace boids
 		public float MovementSpeed { get; set; }
 		public float MouseSensivity { get; set; }
 		public float Zoom { get; set; }
+		public CameraType Type { get; set; }
 
-		public Camera(Vector3? pos = null, Vector3? up = null, float? yaw = null, float? pitch = null)
+		private bool Movable;
+		private bool Orientable;
+		private const int TowerDistance = 10;
+		private const int CameraDistanceFactor = 10;
+		private const int BoidDistance = 70;
+
+		public Camera(Vector3? pos = null, Vector3? up = null, float? yaw = null, float? pitch = null, CameraType type = CameraType.Free)
 		{
-			Position = pos ?? Vector3.Zero;
+			Position = pos ?? new Vector3(0, Engine.MinHeight, 0);
 			WorldUp = up ?? Vector3.UnitY;
 			Yaw = yaw ?? -90f;
 			Pitch = pitch ?? 0f;
 			Zoom = 90f;
-			MovementSpeed = 2.5f;
-			MouseSensivity = 0.1f;
+			MovementSpeed = 120f;
+			MouseSensivity = .8f;
 			Front = -Vector3.UnitZ;
+			SetCameraType(type);
 			UpdateCameraVectors();
+			OrientToBoids();
+		}
+
+		public void Update()
+		{
+			switch (Type)
+			{
+				case CameraType.Behind:
+				case CameraType.Parallel:
+					PositionCamera(Type);
+					OrientToBoids();
+					break;
+				case CameraType.Tower:
+					OrientToBoids();
+					break;
+				case CameraType.Free:
+					break;
+			}
+		}
+
+		public void SetCameraType(CameraType type)
+		{
+			Type = type;
+			switch (type)
+			{
+				case CameraType.Behind:
+				case CameraType.Parallel:
+					Movable = false;
+					Orientable = false;
+					PositionCamera(type);
+					OrientToBoids();
+					break;
+				case CameraType.Tower:
+					Movable = false;
+					Orientable = false;
+					Position = new Vector3(0, Engine.Tower.Height + TowerDistance, 0);
+					OrientToBoids();
+					break;
+				case CameraType.Free:
+					Movable = true;
+					Orientable = true;
+					Front.Normalize();
+					var vertRads = Math.Asin(-Front.Y);
+					Pitch = Utils.Rad2Deg(vertRads);
+					Yaw = Utils.Rad2Deg(Math.Acos(-Front.Z / Math.Cos(vertRads)));
+					UpdateCameraVectors();
+					break;
+			}
+		}
+
+		private void OrientToBoids()
+		{
+			Vector3 front;
+			if (Type == CameraType.Parallel || Type == CameraType.Behind)
+				front = Engine.LeaderBoid.Position - Position;
+			else
+				front = Engine.FlockMiddlePosAbsolute - Position;
+			Front = front.Normalized();
+			Up = Engine.LeaderBoid.Up;
+			Right = Vector3.Cross(Front, Up).Normalized();
+		}
+
+		private void PositionCamera(CameraType type)
+		{
+			var leader = Engine.LeaderBoid;
+
+			if (type == CameraType.Parallel)
+			{
+				Vector3 right = leader.Right;
+
+				right *= BoidDistance + (CameraDistanceFactor * Engine.Boids.Count + 1);
+
+				Position = leader.Position - right;
+				return;
+			}
+
+			Vector3 front = leader.Front;
+			front *= BoidDistance + (CameraDistanceFactor * Engine.Boids.Count + 1);
+
+			Position = leader.Position - front;
 		}
 
 		public Matrix4 GetViewMatrix()
@@ -44,6 +140,9 @@ namespace boids
 
 		public void ProcessKeyboard(CameraMovement dir, float dt)
 		{
+			if (!Movable)
+				return;
+
 			float velocity = MovementSpeed * dt;
 			switch (dir)
 			{
@@ -60,22 +159,21 @@ namespace boids
 					Position += Right * velocity;
 					break;
 			}
+
+			Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
 		}
 
 		public void ProcessMouse(float xOffset, float yOffset, bool constraintPitch = true)
 		{
-			xOffset *= MouseSensivity;
-			yOffset *= MouseSensivity;
+			if (!Orientable)
+				return;
 
-			Yaw += xOffset;
-			Pitch += yOffset;
+			Yaw += xOffset * MouseSensivity;
+			Pitch += yOffset * MouseSensivity;
 
 			if (constraintPitch)
 			{
-				if (Pitch > 89)
-					Pitch = 89;
-				if (Pitch < -89)
-					Pitch = -89;
+				Pitch = Math.Clamp(Pitch, -89, 89);
 			}
 
 			UpdateCameraVectors();

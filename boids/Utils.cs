@@ -9,5 +9,10 @@ namespace boids
 		{
 			return (float)(Math.PI * angle / 180f);
 		}
+
+		public static float Rad2Deg(double angle)
+		{
+			return (float)(angle * 180f / Math.PI);
+		}
 	}
 }

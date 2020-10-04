@@ -22,7 +22,11 @@ namespace boids
 		public static Model LoadModel(string modelPath, string name)
 		{
 			if (!Models.ContainsKey(name))
+			{
+				Console.WriteLine("Loading model: " + name);
 				Models[name] = new Model(modelPath);
+				Console.WriteLine("Model Loaded!");
+			}
 			return Models[name];
 		}
 

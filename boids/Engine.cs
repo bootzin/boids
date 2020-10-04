@@ -2,6 +2,7 @@
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Input;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,17 +10,24 @@ namespace boids
 {
 	public sealed class Engine : GameWindow
 	{
-		public static Camera Camera { get; set; } = new Camera(new Vector3(0, 2, 3));
+		public static Camera Camera { get; set; }
 		private float lastX;
 		private float lastY;
 		private bool firstMouse = true;
 		private float deltaTime;
 
-		private const int GroundSize = 2000;
-		private const int GroundLevel = 2000;
+		private const int GroundSize = 4000;
+		private const int GroundLevel = 0;
+		public static int MinHeight { get; } = 20;
+		public static int MaxHeight { get; } = 1500;
+		public static Vector3 FlockMiddlePos { get; private set; }
+		public static Vector3 FlockMiddlePosAbsolute => LeaderBoid.Position + FlockMiddlePos;
 
-
-		public List<EngineObject> Boids { get; set; } = new List<EngineObject>();
+		public static List<EngineObject> Boids { get; set; } = new List<EngineObject>();
+		public List<EngineObject> EngineObjects { get; set; } = new List<EngineObject>();
+		public static Boid LeaderBoid { get; set; }
+		public static Tower Tower { get; set; }
+		public EngineObject Floor { get; set; }
 
 		public Renderer3D Renderer3D { get; set; }
 
@@ -40,6 +48,60 @@ namespace boids
 			MouseMove += OnMouseMove;
 
 			Init();
+		}
+
+		protected override void OnUpdateFrame(FrameEventArgs e)
+		{
+			base.OnUpdateFrame(e);
+			deltaTime = (float)e.Time;
+
+			Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime, Width, Height));
+			Camera.Update();
+			ProcessEvents();
+		}
+
+		protected override void OnRenderFrame(FrameEventArgs e)
+		{
+			base.OnRenderFrame(e);
+			GL.ClearColor(.85f, .85f, .85f, 1);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+			var shader = ResourceManager.GetShader("textured");
+			foreach (EngineObject obj in EngineObjects)
+			{
+				Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height);
+			}
+
+			SwapBuffers();
+		}
+
+		protected override void OnKeyDown(KeyboardKeyEventArgs e)
+		{
+			base.OnKeyDown(e);
+
+			if (e.Key == Key.W)
+				Camera.ProcessKeyboard(CameraMovement.FORWARD, deltaTime);
+			if (e.Key == Key.S)
+				Camera.ProcessKeyboard(CameraMovement.BACKWARD, deltaTime);
+			if (e.Key == Key.A)
+				Camera.ProcessKeyboard(CameraMovement.LEFT, deltaTime);
+			if (e.Key == Key.D)
+				Camera.ProcessKeyboard(CameraMovement.RIGHT, deltaTime);
+			if (e.Key == Key.Number1)
+				Camera.SetCameraType(CameraType.Behind);
+			if (e.Key == Key.Number2)
+				Camera.SetCameraType(CameraType.Parallel);
+			if (e.Key == Key.Number3)
+				Camera.SetCameraType(CameraType.Tower);
+			if (e.Key == Key.Number4)
+				Camera.SetCameraType(CameraType.Free);
+			if (e.Key == Key.Plus)
+				Camera.MouseSensivity += 0.05f;
+			if (e.Key == Key.Minus)
+				Camera.MouseSensivity -= 0.05f;
+
+			if (e.Key == Key.Q || e.Key == Key.Escape)
+				Close();
 		}
 
 		private void OnMouseMove(object sender, MouseMoveEventArgs e)
@@ -67,53 +129,59 @@ namespace boids
 		{
 			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
 			Model boidModel = ResourceManager.LoadModel("resources/objects/fish/fish.obj", "fish");
+			Model towerModel = ResourceManager.LoadModel("resources/objects/crate/crate1.obj", "tower");
+			Model floorModel = ResourceManager.LoadModel("resources/objects/floor/floor.obj", "floor");
 
 			Renderer3D = new Renderer3D();
 
-			Boids.Add(new Boid(boidModel, Vector3.Zero, Vector3.One * .05f));
-			Boids.Add(new Boid(boidModel, Vector3.One, Vector3.One * .05f));
-			Boids.Add(new Boid(boidModel, -Vector3.One, Vector3.One * .05f));
-		}
+			Tower = new Tower(towerModel, Vector3.Zero, 100, 300);
 
-		protected override void OnUpdateFrame(FrameEventArgs e)
-		{
-			base.OnUpdateFrame(e);
-			deltaTime = (float)e.Time;
-
-			Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime, Width, Height));
-
-			ProcessEvents();
-		}
-
-		protected override void OnRenderFrame(FrameEventArgs e)
-		{
-			base.OnRenderFrame(e);
-			GL.ClearColor(.85f, .85f, .85f, 1);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-			var shader = ResourceManager.GetShader("textured");
-			foreach (Boid boid in Boids)
+			Floor = new EngineObject()
 			{
-				Renderer3D.DrawModel(boid.Model, shader, boid.Position, boid.Size, boid.Color, (float)Width / Height);
-			}
+				Model = floorModel,
+				Position = new Vector3(Vector3.Zero) { Y = GroundLevel },
+				Size = new Vector3(GroundSize, 1, GroundSize)
+			};
 
-			SwapBuffers();
+			Tower.Position += new Vector3(0, Tower.Size.Y + GroundLevel, 0);
+
+			EngineObjects.Add(Tower);
+			EngineObjects.Add(Floor);
+
+			LeaderBoid = new Boid(boidModel, GetRandomPosition(), Vector3.One * 20f, GetRandomDir());
+
+			EngineObjects.Add(LeaderBoid);
+
+			for (int i = 0; i < 50; i++)
+				Boids.Add(new Boid(boidModel, GetRandomPosition(), Vector3.One * 10f, GetRandomDir()));
+			UpdateFlockMiddle();
+
+			EngineObjects.AddRange(Boids);
+
+			Camera = new Camera(GetRandomPosition());
 		}
 
-		protected override void OnKeyDown(KeyboardKeyEventArgs e)
+		private void UpdateFlockMiddle()
 		{
-			base.OnKeyDown(e);
+			FlockMiddlePos = Vector3.Zero;
+			Boids.ForEach(boid => FlockMiddlePos += boid.Position);
+			FlockMiddlePos /= Boids.Count;
+		}
 
-			if (e.Key == Key.W)
-				Camera.ProcessKeyboard(CameraMovement.FORWARD, deltaTime);
-			if (e.Key == Key.S)
-				Camera.ProcessKeyboard(CameraMovement.BACKWARD, deltaTime);
-			if (e.Key == Key.A)
-				Camera.ProcessKeyboard(CameraMovement.LEFT, deltaTime);
-			if (e.Key == Key.D)
-				Camera.ProcessKeyboard(CameraMovement.RIGHT, deltaTime);
-			if (e.Key == Key.Q || e.Key == Key.Escape)
-				Close();
+		private Vector3 GetRandomDir() => new Vector3(Utils.Random.Next(1000) / 1000f, Utils.Random.Next(1000) / 1000f, Utils.Random.Next(1000) / 1000f);
+
+		private Vector3 GetRandomPosition()
+		{
+			float boidX = Utils.Random.Next(GroundSize) - (GroundSize / 2);
+			float boidY = Utils.Random.Next((MaxHeight - MinHeight) / 2);
+			float boidZ = Utils.Random.Next(GroundSize) - (GroundSize / 2);
+
+			if (Math.Abs(boidX) < Tower.Radius)
+				boidX += 2 * Tower.Radius;
+			if (Math.Abs(boidZ) < Tower.Radius)
+				boidZ += 2 * Tower.Radius;
+
+			return new Vector3(boidX, boidY, boidZ);
 		}
 	}
 }
