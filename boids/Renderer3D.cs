@@ -8,9 +8,13 @@ namespace boids
 {
 	public class Renderer3D
 	{
-		private int oceanHeightTex, oceanNormalTex, lightMapTexture;
-		public Renderer3D()
+		private int oceanHeightTex, oceanNormalTex, lightMapTex;
+		private Vector3 lightPos = new Vector3(-20, 2 * Engine.MaxHeight, -30);
+
+		public Shader CausticShaders { get; set; }
+		public Renderer3D(Shader causticShaders)
 		{
+			CausticShaders = causticShaders;
 			Init();
 		}
 
@@ -18,10 +22,10 @@ namespace boids
 		{
 			oceanHeightTex = GL.GenTexture();
 			oceanNormalTex = GL.GenTexture();
-			lightMapTexture = GL.GenTexture();
+			lightMapTex = GL.GenTexture();
 
 			string[] texturePaths = new string[] { "sine_wave_height.png", "sine_wave_normal.png", "light_map.png" };
-			int[] texIds = new int[] { oceanHeightTex, oceanNormalTex, lightMapTexture };
+			int[] texIds = new int[] { oceanHeightTex, oceanNormalTex, lightMapTex };
 
 			for (int i = 0; i < texIds.Length; i++)
 			{
@@ -75,9 +79,36 @@ namespace boids
 			model.Draw(shader);
 		}
 
-		public void RenderCaustics()
+		public void DrawModelWithCaustics(Model model, Shader shader, Vector3 position, Vector3 size, float pitch, float yaw, Vector3 color, float aspectRatio)
 		{
-			//GL.BlendFunc(BlendingFactor.Zero, BlendingFactor.SrcColor);
+			shader.Use();
+			shader.SetMatrix4("projection", Matrix4.CreatePerspectiveFieldOfView(Utils.Deg2Rad(Engine.Camera.Zoom), aspectRatio, 0.1f, 8000f));
+			shader.SetMatrix4("view", Engine.Camera.GetViewMatrix());
+
+			shader.SetVector3f("lightColor", Vector3.Zero);
+			shader.SetVector3f("lightPos", lightPos);
+			shader.SetVector3f("viewPos", Engine.Camera.Position);
+
+			GL.ActiveTexture(TextureUnit.Texture29);
+			GL.BindTexture(TextureTarget.Texture2D, oceanHeightTex);
+			shader.SetInteger("oceanHeight", 29);
+
+			GL.ActiveTexture(TextureUnit.Texture30);
+			GL.BindTexture(TextureTarget.Texture2D, oceanNormalTex);
+			shader.SetInteger("oceanHeight", 30);
+
+			GL.ActiveTexture(TextureUnit.Texture31);
+			GL.BindTexture(TextureTarget.Texture2D, lightMapTex);
+			shader.SetInteger("oceanHeight", 31);
+
+			var modelMatrix = Matrix4.CreateScale(size);
+			modelMatrix *= Matrix4.CreateRotationX(Utils.Deg2Rad(pitch));
+			modelMatrix *= Matrix4.CreateRotationY(Utils.Deg2Rad(yaw));
+			modelMatrix *= Matrix4.CreateTranslation(position);
+
+			shader.SetMatrix4("model", modelMatrix);
+
+			model.Draw(shader);
 		}
 	}
 }
