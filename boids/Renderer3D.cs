@@ -77,7 +77,7 @@ namespace boids
 
 		public void RenderCaustics()
 		{
-			GL.BlendFunc(BlendingFactor.Zero, BlendingFactor.SrcColor);
+			//GL.BlendFunc(BlendingFactor.Zero, BlendingFactor.SrcColor);
 		}
 	}
 }
