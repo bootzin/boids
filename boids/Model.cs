@@ -12,7 +12,7 @@ namespace boids
 	public class Model
 	{
 		private readonly List<Mesh> Meshes = new List<Mesh>();
-		private readonly List<Texture> TexturesLoaded = new List<Texture>();
+		private static readonly List<Texture> TexturesLoaded = new List<Texture>();
 		private string Directory;
 		private bool GammaCorrection;
 
@@ -167,8 +167,8 @@ namespace boids
 				GL.TexImage2D(TextureTarget.Texture2D, 0, format, img.Width, img.Height, 0, pxFormat, PixelType.UnsignedByte, img.Data);
 				GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)All.Repeat);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)All.Repeat);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)All.ClampToEdge);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)All.ClampToEdge);
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)All.LinearMipmapLinear);
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)All.Linear);
 			}

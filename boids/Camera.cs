@@ -35,18 +35,18 @@ namespace boids
 
 		private bool Movable;
 		private bool Orientable;
-		private const int TowerDistance = 10;
+		private const int TowerDistance = 100;
 		private const int CameraDistanceFactor = 10;
-		private const int BoidDistance = 70;
+		private const int BoidDistance = 200;
 
-		public Camera(Vector3? pos = null, Vector3? up = null, float? yaw = null, float? pitch = null, CameraType type = CameraType.Free)
+		public Camera(Vector3? pos = null, Vector3? up = null, float? yaw = null, float? pitch = null, CameraType type = CameraType.Tower)
 		{
 			Position = pos ?? new Vector3(0, Engine.MinHeight, 0);
 			WorldUp = up ?? Vector3.UnitY;
 			Yaw = yaw ?? -90f;
 			Pitch = pitch ?? 0f;
 			Zoom = 90f;
-			MovementSpeed = 120f;
+			MovementSpeed = 200f;
 			MouseSensivity = .8f;
 			Front = -Vector3.UnitZ;
 			SetCameraType(type);
@@ -86,13 +86,13 @@ namespace boids
 				case CameraType.Tower:
 					Movable = false;
 					Orientable = false;
-					Position = new Vector3(0, Engine.Tower.Height + TowerDistance, 0);
+					var tower = Engine.Tower;
+					Position = new Vector3(tower.Position.X, tower.Position.Y + Engine.Tower.Height + TowerDistance, tower.Position.X);
 					OrientToBoids();
 					break;
 				case CameraType.Free:
 					Movable = true;
 					Orientable = true;
-					Front.Normalize();
 					var vertRads = Math.Asin(-Front.Y);
 					Pitch = Utils.Rad2Deg(vertRads);
 					Yaw = Utils.Rad2Deg(Math.Acos(-Front.Z / Math.Cos(vertRads)));
@@ -105,7 +105,7 @@ namespace boids
 		{
 			Vector3 front;
 			if (Type == CameraType.Parallel || Type == CameraType.Behind)
-				front = Engine.LeaderBoid.Position - Position;
+				front = Engine.LeaderBoid.Position + (Engine.LeaderBoid.Size / 2) - Position;
 			else
 				front = Engine.FlockMiddlePosAbsolute - Position;
 			Front = front.Normalized();
@@ -121,16 +121,18 @@ namespace boids
 			{
 				Vector3 right = leader.Right;
 
-				right *= BoidDistance + (CameraDistanceFactor * Engine.Boids.Count + 1);
+				right *= BoidDistance + (CameraDistanceFactor * (Engine.Boids.Count + 1));
 
 				Position = leader.Position - right;
+				Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
 				return;
 			}
 
 			Vector3 front = leader.Front;
-			front *= BoidDistance + (CameraDistanceFactor * Engine.Boids.Count + 1);
+			front *= BoidDistance + (CameraDistanceFactor * 2 * (Engine.Boids.Count + 1));
 
 			Position = leader.Position - front;
+			Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
 		}
 
 		public Matrix4 GetViewMatrix()

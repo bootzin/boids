@@ -15,10 +15,13 @@ namespace boids
 		private float lastY;
 		private bool firstMouse = true;
 		private float deltaTime;
+		private float currentFishModelIndex;
+		private Vector3 leaderTarget = Vector3.Zero;
+		private Vector3 lightPos = new Vector3(-20, 2 * MaxHeight, -30);
 
-		private const int GroundSize = 4000;
-		private const int GroundLevel = 0;
-		public static int MinHeight { get; } = 20;
+		public const int GroundSize = 4000;
+		public const int GroundLevel = -20;
+		public static int MinHeight { get; } = 200;
 		public static int MaxHeight { get; } = 1500;
 		public static Vector3 FlockMiddlePos { get; private set; }
 		public static Vector3 FlockMiddlePosAbsolute => LeaderBoid.Position + FlockMiddlePos;
@@ -50,12 +53,60 @@ namespace boids
 			Init();
 		}
 
+		private void Init()
+		{
+			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
+
+			List<Model> boidModels = new List<Model>();
+			for (int i = 10; i < 50; i++)
+			{
+				boidModels.Add(ResourceManager.LoadModel("resources/objects/fish/fish_0000" + i + ".obj", "fish_0000" + i));
+			}
+
+			Model towerModel = ResourceManager.LoadModel("resources/objects/crate/crate1.obj", "tower");
+			Model floorModel = ResourceManager.LoadModel("resources/objects/floor/floor.obj", "floor");
+
+			Renderer3D = new Renderer3D();
+
+			Tower = new Tower(towerModel, Vector3.Zero, 100, 300);
+
+			Floor = new EngineObject()
+			{
+				Model = floorModel,
+				Position = new Vector3(Vector3.Zero) { Y = GroundLevel },
+				Size = new Vector3(GroundSize, 1, GroundSize)
+			};
+
+			Tower.Position += new Vector3(0, Tower.Size.Y + GroundLevel, 0);
+
+			EngineObjects.Add(Tower);
+			EngineObjects.Add(Floor);
+
+			LeaderBoid = new Boid(boidModels[0], GetRandomPosition(), Vector3.One * 30f, GetRandomPosition());
+
+			EngineObjects.Add(LeaderBoid);
+
+			for (int i = 0; i < 50; i++)
+				Boids.Add(new Boid(boidModels[0], GetRandomPosition(), Vector3.One * 10f, GetRandomDir()));
+			UpdateFlockMiddle();
+
+			EngineObjects.AddRange(Boids);
+
+			Camera = new Camera(GetRandomPosition());
+		}
+
 		protected override void OnUpdateFrame(FrameEventArgs e)
 		{
 			base.OnUpdateFrame(e);
 			deltaTime = (float)e.Time;
 
-			Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime, Width, Height));
+			if (leaderTarget == Vector3.Zero || Vector3.Distance(LeaderBoid.Position, leaderTarget) < 200)
+				leaderTarget = GetRandomPosition();
+
+			LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
+
+			Boids.ForEach(boid => ((Boid)boid).Move(EngineObjects.Where(b => b != boid).ToList(), deltaTime));
+			UpdateFlockMiddle();
 			Camera.Update();
 			ProcessEvents();
 		}
@@ -67,10 +118,16 @@ namespace boids
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			var shader = ResourceManager.GetShader("textured");
+			var currBoidModel = ResourceManager.GetModel("fish_0000" + ((((int)currentFishModelIndex) % 39) + 10));
+			Boids.ForEach(boid => boid.Model = currBoidModel);
+			LeaderBoid.Model = currBoidModel;
+			currentFishModelIndex += .3333f;
 			foreach (EngineObject obj in EngineObjects)
 			{
 				Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height);
 			}
+
+			Renderer3D.RenderCaustics();
 
 			SwapBuffers();
 		}
@@ -125,42 +182,6 @@ namespace boids
 			Camera.ProcessMouseScroll(e.Delta);
 		}
 
-		private void Init()
-		{
-			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
-			Model boidModel = ResourceManager.LoadModel("resources/objects/fish/fish.obj", "fish");
-			Model towerModel = ResourceManager.LoadModel("resources/objects/crate/crate1.obj", "tower");
-			Model floorModel = ResourceManager.LoadModel("resources/objects/floor/floor.obj", "floor");
-
-			Renderer3D = new Renderer3D();
-
-			Tower = new Tower(towerModel, Vector3.Zero, 100, 300);
-
-			Floor = new EngineObject()
-			{
-				Model = floorModel,
-				Position = new Vector3(Vector3.Zero) { Y = GroundLevel },
-				Size = new Vector3(GroundSize, 1, GroundSize)
-			};
-
-			Tower.Position += new Vector3(0, Tower.Size.Y + GroundLevel, 0);
-
-			EngineObjects.Add(Tower);
-			EngineObjects.Add(Floor);
-
-			LeaderBoid = new Boid(boidModel, GetRandomPosition(), Vector3.One * 20f, GetRandomDir());
-
-			EngineObjects.Add(LeaderBoid);
-
-			for (int i = 0; i < 50; i++)
-				Boids.Add(new Boid(boidModel, GetRandomPosition(), Vector3.One * 10f, GetRandomDir()));
-			UpdateFlockMiddle();
-
-			EngineObjects.AddRange(Boids);
-
-			Camera = new Camera(GetRandomPosition());
-		}
-
 		private void UpdateFlockMiddle()
 		{
 			FlockMiddlePos = Vector3.Zero;
@@ -173,7 +194,7 @@ namespace boids
 		private Vector3 GetRandomPosition()
 		{
 			float boidX = Utils.Random.Next(GroundSize) - (GroundSize / 2);
-			float boidY = Utils.Random.Next((MaxHeight - MinHeight) / 2);
+			float boidY = Utils.Random.Next((int)1.5 * MinHeight, (MaxHeight - MinHeight) / 2);
 			float boidZ = Utils.Random.Next(GroundSize) - (GroundSize / 2);
 
 			if (Math.Abs(boidX) < Tower.Radius)
