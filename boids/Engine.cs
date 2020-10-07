@@ -17,6 +17,7 @@ namespace boids
 		private float deltaTime;
 		private float currentFishModelIndex;
 		private Vector3 leaderTarget = Vector3.Zero;
+		private Vector3 lightPos = new Vector3(-20, 2 * MaxHeight, -30);
 
 		public const int GroundSize = 4000;
 		public const int GroundLevel = -20;
@@ -55,7 +56,6 @@ namespace boids
 		private void Init()
 		{
 			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
-			var causticShaders = ResourceManager.LoadShader("shaders/nvidia.vert", "shaders/nvidia.frag", "nvidia");
 
 			List<Model> boidModels = new List<Model>();
 			for (int i = 10; i < 50; i++)
@@ -66,7 +66,7 @@ namespace boids
 			Model towerModel = ResourceManager.LoadModel("resources/objects/crate/crate1.obj", "tower");
 			Model floorModel = ResourceManager.LoadModel("resources/objects/floor/floor.obj", "floor");
 
-			Renderer3D = new Renderer3D(causticShaders);
+			Renderer3D = new Renderer3D();
 
 			Tower = new Tower(towerModel, Vector3.Zero, 100, 300);
 
@@ -117,17 +117,17 @@ namespace boids
 			GL.ClearColor(.85f, .85f, .85f, 1);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			var shader = ResourceManager.GetShader("nvidia");
+			var shader = ResourceManager.GetShader("textured");
 			var currBoidModel = ResourceManager.GetModel("fish_0000" + ((((int)currentFishModelIndex) % 39) + 10));
 			Boids.ForEach(boid => boid.Model = currBoidModel);
 			LeaderBoid.Model = currBoidModel;
 			currentFishModelIndex += .3333f;
 			foreach (EngineObject obj in EngineObjects)
 			{
-				//Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height);
-				Renderer3D.DrawModelWithCaustics(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height);
+				Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height);
 			}
 
+			Renderer3D.RenderCaustics();
 
 			SwapBuffers();
 		}
