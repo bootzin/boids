@@ -14,10 +14,11 @@ namespace boids
 		private float lastX;
 		private float lastY;
 		private bool firstMouse = true;
+		private bool directionalLight = false;
 		private float deltaTime;
 		private float currentFishModelIndex;
 		private Vector3 leaderTarget = Vector3.Zero;
-		private Vector3 lightPos = new Vector3(-20, 2 * MaxHeight, -30);
+		private Vector3 lightPos = new Vector3(0, 1.5f * Engine.MaxHeight, 0);
 
 		public const int GroundSize = 4000;
 		public const int GroundLevel = -20;
@@ -31,10 +32,11 @@ namespace boids
 		public static Boid LeaderBoid { get; set; }
 		public static Tower Tower { get; set; }
 		public EngineObject Floor { get; set; }
+		public static EngineObject Sun { get; set; }
 
 		public Renderer3D Renderer3D { get; set; }
 
-		public Engine(int width, int height, string title) : base(width, height, GraphicsMode.Default, title)
+		public Engine(int width, int height, string title) : base(width, height, new GraphicsMode(new ColorFormat(32), 16, 0, 4, new ColorFormat(0), 2, false), title)
 		{
 			GL.Viewport(0, 0, width, height);
 
@@ -46,6 +48,8 @@ namespace boids
 			GL.Enable(EnableCap.DepthTest);
 			GL.DepthFunc(DepthFunction.Less);
 
+			GL.Enable(EnableCap.Multisample);
+
 			Resize += (_, e) => GL.Viewport(0, 0, Width, Height);
 			MouseWheel += OnMouseWheel;
 			MouseMove += OnMouseMove;
@@ -56,6 +60,7 @@ namespace boids
 		private void Init()
 		{
 			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
+			ResourceManager.LoadShader("shaders/light.vert", "shaders/light.frag", "light");
 
 			List<Model> boidModels = new List<Model>();
 			for (int i = 10; i < 50; i++)
@@ -65,6 +70,7 @@ namespace boids
 
 			Model towerModel = ResourceManager.LoadModel("resources/objects/crate/crate1.obj", "tower");
 			Model floorModel = ResourceManager.LoadModel("resources/objects/floor/floor.obj", "floor");
+			Model sunModel = ResourceManager.LoadModel("resources/objects/other/sphere.obj", "sun");
 
 			Renderer3D = new Renderer3D();
 
@@ -75,6 +81,13 @@ namespace boids
 				Model = floorModel,
 				Position = new Vector3(Vector3.Zero) { Y = GroundLevel },
 				Size = new Vector3(GroundSize, 1, GroundSize)
+			};
+
+			Sun = new EngineObject()
+			{
+				Model = sunModel,
+				Position = lightPos,
+				Size = Vector3.One * 200
 			};
 
 			Tower.Position += new Vector3(0, Tower.Size.Y + GroundLevel, 0);
@@ -124,8 +137,10 @@ namespace boids
 			currentFishModelIndex += .3333f;
 			foreach (EngineObject obj in EngineObjects)
 			{
-				Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height);
+				Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height, directionalLight);
 			}
+
+			Renderer3D.DrawSun(ResourceManager.GetShader("light"), (float)Width / Height);
 
 			Renderer3D.RenderCaustics();
 
@@ -156,6 +171,8 @@ namespace boids
 				Camera.MouseSensivity += 0.05f;
 			if (e.Key == Key.Minus)
 				Camera.MouseSensivity -= 0.05f;
+			if (e.Key == Key.T)
+				directionalLight = !directionalLight;
 
 			if (e.Key == Key.Q || e.Key == Key.Escape)
 				Close();

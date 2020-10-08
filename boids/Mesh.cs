@@ -42,6 +42,7 @@ namespace boids
 				else if (name == "texture_height")
 					number = heightCount++.ToString();
 
+				// assign samplers
 				shader.SetInteger(name + number, i);
 				GL.BindTexture(TextureTarget.Texture2D, Textures[i].ID);
 			}

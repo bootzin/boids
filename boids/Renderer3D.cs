@@ -9,6 +9,7 @@ namespace boids
 	public class Renderer3D
 	{
 		private int oceanHeightTex, oceanNormalTex, lightMapTexture;
+
 		public Renderer3D()
 		{
 			Init();
@@ -59,9 +60,15 @@ namespace boids
 			}
 		}
 
-		public void DrawModel(Model model, Shader shader, Vector3 position, Vector3 size, float pitch, float yaw, Vector3 color, float aspectRatio)
+		public void DrawModel(Model model, Shader shader, Vector3 position, Vector3 size, float pitch, float yaw, Vector3 color, float aspectRatio, bool directionalLight = false)
 		{
 			shader.Use();
+			shader.SetVector3f("lightColor", Vector3.One);
+			shader.SetVector4f("lightPos", directionalLight ? new Vector4(-Engine.Sun.Position, 0) : new Vector4(Engine.Sun.Position, 1));
+			shader.SetVector2f("attenuation", 0.00014f / 10, 0.000007f / 100);
+			//shader.SetVector2f("cutOff", (float)Math.Cos(Utils.Deg2Rad(35.5f)), (float)Math.Cos(Utils.Deg2Rad(40.5f)));
+			shader.SetVector3f("viewPos", Engine.Camera.Position);
+
 			shader.SetMatrix4("projection", Matrix4.CreatePerspectiveFieldOfView(Utils.Deg2Rad(Engine.Camera.Zoom), aspectRatio, 0.1f, 8000f));
 			shader.SetMatrix4("view", Engine.Camera.GetViewMatrix());
 
@@ -73,6 +80,19 @@ namespace boids
 			shader.SetMatrix4("model", modelMatrix);
 
 			model.Draw(shader);
+		}
+
+		public void DrawSun(Shader shader, float aspectRatio)
+		{
+			var sun = Engine.Sun;
+			shader.Use();
+			shader.SetMatrix4("projection", Matrix4.CreatePerspectiveFieldOfView(Utils.Deg2Rad(Engine.Camera.Zoom), aspectRatio, 0.1f, 8000f));
+			shader.SetMatrix4("view", Engine.Camera.GetViewMatrix());
+
+			var modelMatrix = Matrix4.CreateScale(sun.Size);
+			modelMatrix *= Matrix4.CreateTranslation(sun.Position);
+			shader.SetMatrix4("model", modelMatrix);
+			sun.Model.Draw(shader);
 		}
 
 		public void RenderCaustics()
