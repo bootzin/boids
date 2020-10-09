@@ -14,11 +14,11 @@ namespace boids
 		private float lastX;
 		private float lastY;
 		private bool firstMouse = true;
-		private bool directionalLight = false;
+		private bool directionalLight;
 		private float deltaTime;
 		private float currentFishModelIndex;
 		private Vector3 leaderTarget = Vector3.Zero;
-		private Vector3 lightPos = new Vector3(0, 1.5f * Engine.MaxHeight, 0);
+		private Vector3 lightPos = new Vector3(1, 1.5f * Engine.MaxHeight, 1);
 
 		public const int GroundSize = 4000;
 		public const int GroundLevel = -20;
@@ -61,6 +61,7 @@ namespace boids
 		{
 			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
 			ResourceManager.LoadShader("shaders/light.vert", "shaders/light.frag", "light");
+			ResourceManager.LoadShader("shaders/shadow.vert", "shaders/shadow.frag", "shadow");
 
 			List<Model> boidModels = new List<Model>();
 			for (int i = 10; i < 50; i++)
@@ -114,7 +115,7 @@ namespace boids
 			deltaTime = (float)e.Time;
 
 			if (leaderTarget == Vector3.Zero || Vector3.Distance(LeaderBoid.Position, leaderTarget) < 200)
-				leaderTarget = GetRandomPosition();
+				leaderTarget =  GetRandomPosition();
 
 			LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
 
@@ -127,18 +128,21 @@ namespace boids
 		protected override void OnRenderFrame(FrameEventArgs e)
 		{
 			base.OnRenderFrame(e);
-			GL.ClearColor(.85f, .85f, .85f, 1);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			var shader = ResourceManager.GetShader("textured");
 			var currBoidModel = ResourceManager.GetModel("fish_0000" + ((((int)currentFishModelIndex) % 39) + 10));
 			Boids.ForEach(boid => boid.Model = currBoidModel);
 			LeaderBoid.Model = currBoidModel;
 			currentFishModelIndex += .3333f;
-			foreach (EngineObject obj in EngineObjects)
-			{
-				Renderer3D.DrawModel(obj.Model, shader, obj.Position, obj.Size, obj.Pitch, obj.Yaw, obj.Color, (float)Width / Height, directionalLight);
-			}
+
+			GL.ClearColor(.1f, .1f, .1f, 1);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+			Renderer3D.RenderShadows(EngineObjects, ResourceManager.GetShader("shadow"), Width, Height, directionalLight);
+
+			GL.ClearColor(.85f, .85f, .85f, 1);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Width, Height, directionalLight);
 
 			Renderer3D.DrawSun(ResourceManager.GetShader("light"), (float)Width / Height);
 
@@ -173,6 +177,15 @@ namespace boids
 				Camera.MouseSensivity -= 0.05f;
 			if (e.Key == Key.T)
 				directionalLight = !directionalLight;
+
+			if (e.Key == Key.Left)
+				Sun.Position -= Vector3.UnitZ * 50;
+			if (e.Key == Key.Right)
+				Sun.Position += Vector3.UnitZ * 50;
+			if (e.Key == Key.Down)
+				Sun.Position -= Vector3.UnitY * 50;
+			if (e.Key == Key.Up)
+				Sun.Position += Vector3.UnitY * 50;
 
 			if (e.Key == Key.Q || e.Key == Key.Escape)
 				Close();
