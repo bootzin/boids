@@ -37,7 +37,7 @@ namespace boids
 					number = diffuseCount++.ToString();
 				else if (name == "texture_specular")
 					number = specularCount++.ToString();
-				else if (name == "texture_normal")
+				else if (name == "texture_height") // for some reason it seems obj files load normal maps as height maps
 					number = normalCount++.ToString();
 				else if (name == "texture_height")
 					number = heightCount++.ToString();

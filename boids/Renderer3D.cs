@@ -90,6 +90,10 @@ namespace boids
 			shader.SetVector3f("viewPos", Engine.Camera.Position);
 			shader.SetMatrix4("lightSpaceMatrix", lightSpaceMatrix);
 
+			shader.SetVector3f("fogColor", new Vector3(60 / 255f, 100 / 255f, 120 / 255f));
+			shader.SetInteger("fogEnabled", 1);
+			shader.SetFloat("fogDensity", .00065f);
+
 			shader.SetMatrix4("projection", Matrix4.CreatePerspectiveFieldOfView(Utils.Deg2Rad(Engine.Camera.Zoom), (float)width / height, 0.1f, 8000f));
 			shader.SetMatrix4("view", Engine.Camera.GetViewMatrix());
 

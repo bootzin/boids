@@ -18,12 +18,11 @@ namespace boids
 		private float deltaTime;
 		private float currentFishModelIndex;
 		private Vector3 leaderTarget = Vector3.Zero;
-		private Vector3 lightPos = new Vector3(1, 1.5f * Engine.MaxHeight, 1);
 
 		public const int GroundSize = 4000;
 		public const int GroundLevel = -20;
-		public static int MinHeight { get; } = 200;
-		public static int MaxHeight { get; } = 1500;
+		public const int MinHeight = 200;
+		public const int MaxHeight = 1500;
 		public static Vector3 FlockMiddlePos { get; private set; }
 		public static Vector3 FlockMiddlePosAbsolute => LeaderBoid.Position + FlockMiddlePos;
 
@@ -60,6 +59,8 @@ namespace boids
 		private void Init()
 		{
 			ResourceManager.LoadShader("shaders/textured.vert", "shaders/textured.frag", "textured");
+			ResourceManager.LoadShader("shaders/normal.vert", "shaders/normal.frag", "normal");
+			ResourceManager.LoadShader("shaders/normal2.vert", "shaders/normal2.frag", "normal2");
 			ResourceManager.LoadShader("shaders/light.vert", "shaders/light.frag", "light");
 			ResourceManager.LoadShader("shaders/shadow.vert", "shaders/shadow.frag", "shadow");
 
@@ -87,7 +88,7 @@ namespace boids
 			Sun = new EngineObject()
 			{
 				Model = sunModel,
-				Position = lightPos,
+				Position = new Vector3(200, 1.5f * MaxHeight, -300),
 				Size = Vector3.One * 200
 			};
 
@@ -139,7 +140,7 @@ namespace boids
 
 			Renderer3D.RenderShadows(EngineObjects, ResourceManager.GetShader("shadow"), Width, Height, directionalLight);
 
-			GL.ClearColor(.85f, .85f, .85f, 1);
+			GL.ClearColor(60 / 255f, 100 / 255f, 120 / 255f, 1);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Width, Height, directionalLight);

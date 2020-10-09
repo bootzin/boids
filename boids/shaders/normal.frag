@@ -2,34 +2,27 @@
 out vec4 FragColor;
 
 in vec2 TexCoords;
-in vec3 Normal;  
 in vec3 FragPos;
+in vec4 TangentLightPos;
+in vec3 TangentViewPos;
+in vec3 TangentFragPos;
+in vec4 TangentFragPosLightSpace;
 in vec4 FragPosLightSpace;
-in vec4 EyeSpacePosition;
 
 uniform vec4 lightPos; 
 uniform vec3 lightColor;
 uniform vec2 attenuation; // linear and quadratic (constant is always 1)
 uniform vec2 cutOff; //inner, outer
+uniform bool gamma;
 
-uniform vec3 viewPos; 
-
-//fog
-uniform vec3 fogColor;
-uniform float fogDensity;
-uniform bool fogEnabled;
+//uniform vec3 viewPos; 
 
 uniform sampler2D texture_diffuse1;
 uniform sampler2D texture_specular1;
+uniform sampler2D texture_normal1;
 uniform sampler2D shadowMap;
 
-float GetFogFactor(float fogCoordinate) 
-{
-    float result = exp(-pow(fogDensity * fogCoordinate, 2.0));
-    return (1.0 - clamp(result, 0.0, 1.0));
-}
-
-float ShadowCalculation(vec4 fragPosLightSpace)
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 norm)
 {
     // perform perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
@@ -40,9 +33,9 @@ float ShadowCalculation(vec4 fragPosLightSpace)
     // get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
     // calculate bias (based on depth map resolution and slope)
-    vec3 normal = normalize(Normal);
-    vec3 lightDir = normalize(lightPos.xyz - FragPos);
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    //vec3 normal = normalize(Normal);
+    vec3 lightDir = normalize(TangentLightPos.xyz - TangentFragPos);
+    float bias = max(0.05 * (1.0 - dot(norm, lightDir)), 0.005);
     // check whether current frag pos is in shadow
     // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
     // PCF
@@ -71,49 +64,46 @@ void main()
     if(texDiffColor.a < .9)
         discard;
 
+    // obtain normal from normal map in range [0,1]
+    vec3 norm = texture(texture_normal1, TexCoords).rgb;
+    norm = normalize(norm * 2.0 - 1.0);  // this normal is in tangent space
+
     // ambient
     float ambientStrength = 0.2;
     vec3 ambient = ambientStrength * lightColor * texDiffColor.rgb;
   	
     // diffuse
     float diffuseStrength = 1;
-    vec3 norm = normalize(Normal);
 
     vec3 lightDir;
-    if (lightPos.w == 0.0)
-        lightDir = normalize((-lightPos).xyz);
-    else if (lightPos.w == 1.0)
-        lightDir = normalize(lightPos.xyz - FragPos);
+    if (TangentLightPos.w == 0.0)
+        lightDir = normalize(-TangentLightPos.xyz);
+    else if (TangentLightPos.w == 1.0)
+        lightDir = normalize(TangentLightPos.xyz - TangentFragPos);
 
-    float diff = max(dot(norm, lightDir), 0.0);
+    float diff = max(dot(lightDir, norm), 0.0);
     vec3 diffuse = diff * lightColor * texDiffColor.rgb * diffuseStrength;
     
     // specular
     float specularStrength = 0.4;
-    vec3 viewDir = normalize(viewPos - FragPos);
+    vec3 viewDir = normalize(TangentViewPos - TangentFragPos);
     vec3 reflectDir = reflect(-lightDir, norm);  
+    vec3 halfwayDir = normalize(lightDir + viewDir); // todo: apply gamma correction
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16);
     vec3 specular = specularStrength * spec * lightColor * (texture(texture_specular1, TexCoords)).rgb;
 
-    // spotlight (soft edges)
-    //float theta = dot(lightDir, normalize(-lightPos.xyz)); 
+    // spotlight
+    //float theta = dot(lightDir, normalize(-TangentLightPos.xyz)); 
     //float epsilon = (cutOff.x - cutOff.y);
     //float intensity = clamp((theta - cutOff.y) / epsilon, 0.0, 1.0);
     //diffuse  *= intensity;
     //specular *= intensity;
 
     // attenuation
-    float distance = length(lightPos.xyz - FragPos);
+    float distance = length(TangentLightPos.xyz - TangentFragPos);
     float atten = 1.0 / (1.0 + attenuation.x * distance + attenuation.y * (distance * distance));
 
-    float shadow = ShadowCalculation(FragPosLightSpace); 
-    vec3 result = (ambient + (1.0 - shadow) * (diffuse + specular)) * atten;
+    float shadow = ShadowCalculation(FragPosLightSpace, norm); 
+    vec3 result = (ambient + (1.0 - shadow) * (diffuse + specular));// * atten;
     FragColor = vec4(result, 1);
-
-    if (fogEnabled)
-    {
-        float fogCoord = abs(EyeSpacePosition.z / EyeSpacePosition.w);
-        FragColor = mix(FragColor, vec4(fogColor, 1), GetFogFactor(fogCoord));
-    }   
-
 }
