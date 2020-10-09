@@ -120,7 +120,7 @@ namespace boids
 
 			LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
 
-			Boids.ForEach(boid => ((Boid)boid).Move(EngineObjects.Where(b => b != boid).ToList(), deltaTime));
+			Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime));
 			UpdateFlockMiddle();
 			Camera.Update();
 			ProcessEvents();
@@ -173,9 +173,21 @@ namespace boids
 			if (e.Key == Key.Number4)
 				Camera.SetCameraType(CameraType.Free);
 			if (e.Key == Key.Plus)
-				Camera.MouseSensivity += 0.05f;
+			{
+				Boid b = new Boid(ResourceManager.GetModel("fish_000010"), GetRandomPosition(), Vector3.One * 15, GetRandomDir());
+				Boids.Add(b);
+				EngineObjects.Add(b);
+			}
 			if (e.Key == Key.Minus)
-				Camera.MouseSensivity -= 0.05f;
+			{
+				if (Boids.Count > 3)
+				{
+					int i = Utils.Random.Next(Boids.Count);
+					EngineObject b = Boids[i];
+					Boids.Remove(b);
+					EngineObjects.Remove(b);
+				}
+			}
 			if (e.Key == Key.T)
 				directionalLight = !directionalLight;
 

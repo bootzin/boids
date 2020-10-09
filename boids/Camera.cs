@@ -121,7 +121,7 @@ namespace boids
 			{
 				Vector3 right = leader.Right;
 
-				right *= BoidDistance + (CameraDistanceFactor * (Engine.Boids.Count + 1));
+				right *= BoidDistance + (CameraDistanceFactor * Math.Max((Engine.Boids.Count + 1), 35));
 
 				Position = leader.Position - right;
 				Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
@@ -129,7 +129,7 @@ namespace boids
 			}
 
 			Vector3 front = leader.Front;
-			front *= BoidDistance + (CameraDistanceFactor * 2 * (Engine.Boids.Count + 1));
+			front *= BoidDistance + (CameraDistanceFactor * 2 * Math.Max((Engine.Boids.Count + 1), 35));
 
 			Position = leader.Position - front;
 			Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
