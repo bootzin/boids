@@ -35,7 +35,7 @@ namespace boids
 
 		private bool Movable;
 		private bool Orientable;
-		private const int TowerDistance = 100;
+		private Vector3 TowerCameraPosition = new Vector3(-150, 1000, 1);
 		private const int CameraDistanceFactor = 10;
 		private const int BoidDistance = 200;
 
@@ -86,8 +86,7 @@ namespace boids
 				case CameraType.Tower:
 					Movable = false;
 					Orientable = false;
-					var tower = Engine.Tower;
-					Position = new Vector3(tower.Position.X, tower.Position.Y + Engine.Tower.Height + TowerDistance, tower.Position.X);
+					Position = TowerCameraPosition;
 					OrientToBoids();
 					break;
 				case CameraType.Free:
@@ -104,10 +103,10 @@ namespace boids
 		private void OrientToBoids()
 		{
 			Vector3 front;
-			if (Type == CameraType.Parallel || Type == CameraType.Behind)
+			//if (Type == CameraType.Parallel || Type == CameraType.Behind)
 				front = Engine.LeaderBoid.Position + (Engine.LeaderBoid.Size / 2) - Position;
-			else
-				front = Engine.FlockMiddlePosAbsolute - Position;
+			//else
+			//	front = Engine.FlockMiddlePosAbsolute - Position;
 			Front = front.Normalized();
 			Up = Engine.LeaderBoid.Up;
 			Right = Vector3.Cross(Front, Up).Normalized();
@@ -121,7 +120,7 @@ namespace boids
 			{
 				Vector3 right = leader.Right;
 
-				right *= BoidDistance + (CameraDistanceFactor * Math.Max((Engine.Boids.Count + 1), 35));
+				right *= BoidDistance + (CameraDistanceFactor * Math.Max((Engine.Boids.Count + 1), 50));
 
 				Position = leader.Position - right;
 				Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
@@ -129,7 +128,7 @@ namespace boids
 			}
 
 			Vector3 front = leader.Front;
-			front *= BoidDistance + (CameraDistanceFactor * 2 * Math.Max((Engine.Boids.Count + 1), 35));
+			front *= BoidDistance + (CameraDistanceFactor * 2 * Math.Max((Engine.Boids.Count + 1), 50));
 
 			Position = leader.Position - front;
 			Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);

@@ -13,8 +13,7 @@ namespace boids
 		public Vector3 Front { get; set; }
 		public Vector3 Up { get; set; }
 		public Vector3 Right { get; set; }
-
-		private const int MAX_SPEED = 120;
+		public static int MAX_SPEED { get; set; } = 120;
 
 		public Boid(Model model, Vector3 position, Vector3 size, Vector3 front, Vector3? up = null, Vector3? color = null)
 		{
@@ -86,7 +85,7 @@ namespace boids
 			objects.ForEach(obj =>
 			{
 				if (Vector3.Distance(obj.Position, Position) < 200)
-					ret -= (obj.Position - Position) / 25;
+					ret -= (obj.Position - Position) / 15;
 			});
 			return ret;
 		}

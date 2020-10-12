@@ -70,13 +70,14 @@ namespace boids
 				boidModels.Add(ResourceManager.LoadModel("resources/objects/fish/fish_0000" + i + ".obj", "fish_0000" + i));
 			}
 
-			Model towerModel = ResourceManager.LoadModel("resources/objects/crate/crate1.obj", "tower");
+			Model towerModel = ResourceManager.LoadModel("resources/objects/ship/ship.obj", "tower");
 			Model floorModel = ResourceManager.LoadModel("resources/objects/floor/floor.obj", "floor");
 			Model sunModel = ResourceManager.LoadModel("resources/objects/other/sphere.obj", "sun");
+			Model weedModel = ResourceManager.LoadModel("resources/objects/weed/weed.obj", "weed");
 
 			Renderer3D = new Renderer3D();
 
-			Tower = new Tower(towerModel, Vector3.Zero, 100, 300);
+			Tower = new Tower(towerModel, Vector3.Zero, 1, 3);
 
 			Floor = new EngineObject()
 			{
@@ -97,12 +98,25 @@ namespace boids
 			EngineObjects.Add(Tower);
 			EngineObjects.Add(Floor);
 
-			LeaderBoid = new Boid(boidModels[0], GetRandomPosition(), Vector3.One * 30f, GetRandomPosition());
+			LeaderBoid = new Boid(boidModels[0], GetRandomPosition(), Vector3.One * 30, GetRandomPosition());
 
 			EngineObjects.Add(LeaderBoid);
 
+			for (int i = 0; i < 25; i++)
+				Boids.Add(new Boid(boidModels[0], GetRandomPosition(), Vector3.One * Utils.Random.Next(10, 16), GetRandomDir()));
+
 			for (int i = 0; i < 50; i++)
-				Boids.Add(new Boid(boidModels[0], GetRandomPosition(), Vector3.One * 10f, GetRandomDir()));
+			{
+				var size = new Vector3(30000, Utils.Random.Next(30, 40) * 1000, 30000);
+				var weed = new EngineObject()
+				{
+					Model = weedModel,
+					Size = size,
+					Position = new Vector3(GetRandomPosition()) { Y = GroundLevel }
+				};
+				EngineObjects.Add(weed);
+			}
+
 			UpdateFlockMiddle();
 
 			EngineObjects.AddRange(Boids);
@@ -145,7 +159,7 @@ namespace boids
 
 			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Width, Height, directionalLight);
 
-			Renderer3D.DrawSun(ResourceManager.GetShader("light"), (float)Width / Height);
+			//Renderer3D.DrawSun(ResourceManager.GetShader("light"), (float)Width / Height);
 
 			Renderer3D.RenderCaustics();
 
@@ -174,13 +188,24 @@ namespace boids
 				Camera.SetCameraType(CameraType.Free);
 			if (e.Key == Key.Plus)
 			{
-				Boid b = new Boid(ResourceManager.GetModel("fish_000010"), GetRandomPosition(), Vector3.One * 15, GetRandomDir());
-				Boids.Add(b);
-				EngineObjects.Add(b);
+				if (e.Shift)
+				{
+					Boid.MAX_SPEED = Math.Min(150, Boid.MAX_SPEED + 10); // boids fail to reach their target with speeds higher than 150
+				}
+				else
+				{
+					Boid b = new Boid(ResourceManager.GetModel("fish_000010"), GetRandomPosition(), Vector3.One * Utils.Random.Next(10, 16), GetRandomDir());
+					Boids.Add(b);
+					EngineObjects.Add(b);
+				}
 			}
 			if (e.Key == Key.Minus)
 			{
-				if (Boids.Count > 3)
+				if (e.Shift)
+				{
+					Boid.MAX_SPEED = Math.Max(50, Boid.MAX_SPEED - 10); // speeds lower than 50 start to get weird
+				}
+				else if (Boids.Count > 3)
 				{
 					int i = Utils.Random.Next(Boids.Count);
 					EngineObject b = Boids[i];
@@ -189,7 +214,7 @@ namespace boids
 				}
 			}
 			if (e.Key == Key.T)
-				directionalLight = !directionalLight;
+				directionalLight = !directionalLight; // can mess up with shadows
 
 			if (e.Key == Key.Left)
 				Sun.Position -= Vector3.UnitZ * 50;
@@ -237,7 +262,7 @@ namespace boids
 		private Vector3 GetRandomPosition()
 		{
 			float boidX = Utils.Random.Next(GroundSize) - (GroundSize / 2);
-			float boidY = Utils.Random.Next((int)1.5 * MinHeight, (MaxHeight - MinHeight) / 2);
+			float boidY = Utils.Random.Next(2 * MinHeight, (MaxHeight - MinHeight) / 2);
 			float boidZ = Utils.Random.Next(GroundSize) - (GroundSize / 2);
 
 			if (Math.Abs(boidX) < Tower.Radius)
