@@ -59,7 +59,11 @@ namespace boids
 			Velocity += Objective(true, destination);
 			CheckBoundaries();
 			Velocity = Vector3.Clamp(Velocity, -Vector3.One * MAX_SPEED, Vector3.One * MAX_SPEED);
+			CalculatePositionAndRotation(dt);
+		}
 
+		public void CalculatePositionAndRotation(float dt)
+		{
 			Vector3 oldPos = Position;
 
 			Position += Velocity * dt;
@@ -118,22 +122,22 @@ namespace boids
 			return (ret - Velocity) / 8;
 		}
 
-		private void CheckBoundaries()
+		public void CheckBoundaries()
 		{
 			if (Position.X < -Engine.GroundSize)
-				Velocity = new Vector3(Velocity) { X = 1 };
+				Velocity = new Vector3(Velocity) { X = 10 };
 			if (Position.X > Engine.GroundSize)
-				Velocity = new Vector3(Velocity) { X = -1 };
+				Velocity = new Vector3(Velocity) { X = -10 };
 
 			if (Position.Y < Engine.MinHeight)
-				Velocity = new Vector3(Velocity) { Y = 1 };
+				Velocity = new Vector3(Velocity) { Y = 10 };
 			if (Position.Y > Engine.MaxHeight)
-				Velocity = new Vector3(Velocity) { Y = -1 };
+				Velocity = new Vector3(Velocity) { Y = -10 };
 
 			if (Position.Z < -Engine.GroundSize)
-				Velocity = new Vector3(Velocity) { Z = 1 };
+				Velocity = new Vector3(Velocity) { Z = 10 };
 			if (Position.Z > Engine.GroundSize)
-				Velocity = new Vector3(Velocity) { Z = -1 };
+				Velocity = new Vector3(Velocity) { Z = -10 };
 		}
 	}
 }

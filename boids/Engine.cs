@@ -16,11 +16,13 @@ namespace boids
 		private bool firstMouse = true;
 		private bool directionalLight;
 		private bool fogEnabled = true;
+		private bool shouldPause;
+		private bool autoPilot = true;
 		private float deltaTime;
 		private float cumulativeTime;
 		private float currentFishModelIndex;
 		private Vector3 leaderTarget = Vector3.Zero;
-		private GameState State = GameState.Active;
+		private GameState State;
 
 		public const int GroundSize = 6000;
 		public const int GroundLevel = -20;
@@ -56,6 +58,7 @@ namespace boids
 			Resize += (_, e) => GL.Viewport(0, 0, Width, Height);
 			MouseWheel += OnMouseWheel;
 			MouseMove += OnMouseMove;
+			MouseDown += OnMouseDown;
 
 			WindowState = WindowState.Maximized;
 			CursorVisible = false;
@@ -141,14 +144,30 @@ namespace boids
 				cumulativeTime += deltaTime;
 				currentFishModelIndex += 24 * deltaTime;
 
-				if (leaderTarget == Vector3.Zero || Vector3.Distance(LeaderBoid.Position, leaderTarget) < 2 * Boid.MAX_SPEED)
-					leaderTarget = GetRandomPosition();
+				if (autoPilot)
+				{
+					if (leaderTarget == Vector3.Zero || Vector3.Distance(LeaderBoid.Position, leaderTarget) < 2 * Boid.MAX_SPEED)
+						leaderTarget = GetRandomPosition();
 
-				LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
+					LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
+				}
+				else
+				{
+					LeaderBoid.CheckBoundaries();
+					LeaderBoid.Velocity = Vector3.Clamp(LeaderBoid.Velocity, -Vector3.One * Boid.MAX_SPEED, Vector3.One * Boid.MAX_SPEED);
+					LeaderBoid.CalculatePositionAndRotation(deltaTime);
+				}
 
 				Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime));
 				UpdateFlockMiddle();
 				Camera.Update();
+
+				if (shouldPause)
+				{
+					shouldPause = false;
+					State = GameState.Paused;
+					LogDebugInfo();
+				}
 			}
 			ProcessEvents();
 		}
@@ -203,7 +222,9 @@ namespace boids
 			{
 				if (e.Shift)
 				{
-					Boid.MAX_SPEED = Math.Min(1200, Boid.MAX_SPEED + 10); // keeping max speed sane
+					Boid.MAX_SPEED = Math.Min(800, Boid.MAX_SPEED + 10); // keeping max speed sane
+					if (!autoPilot)
+						LeaderBoid.Velocity = LeaderBoid.Velocity.Normalized() * Boid.MAX_SPEED;
 				}
 				else
 				{
@@ -219,6 +240,8 @@ namespace boids
 				if (e.Shift)
 				{
 					Boid.MAX_SPEED = Math.Max(50, Boid.MAX_SPEED - 10); // speeds lower than 50 start to get weird
+					if (!autoPilot)
+						LeaderBoid.Velocity = LeaderBoid.Velocity.Normalized() * Boid.MAX_SPEED;
 				}
 				else if (Boids.Count > 3)
 				{
@@ -249,22 +272,51 @@ namespace boids
 				Sun.Position += Vector3.UnitY * 50;
 
 			// enable/disable boid movement rules
-			if (e.Key == Key.S)
+			if (e.Key == Key.F1)
 				Boid.Sep = !Boid.Sep;
-			if (e.Key == Key.C)
+			if (e.Key == Key.F2)
 				Boid.Coh = !Boid.Coh;
-			if (e.Key == Key.A)
+			if (e.Key == Key.F3)
 				Boid.Ali = !Boid.Ali;
-			if (e.Key == Key.G)
+			if (e.Key == Key.F4)
 				Boid.Goal = !Boid.Goal;
 
-			// pause/unpause
+			// move leader boid when autopilot is disabled
+			if (!autoPilot)
+			{
+				if (e.Key == Key.W)
+				{
+					LeaderBoid.Velocity += LeaderBoid.Up * (Boid.MAX_SPEED / 20);
+				}
+				if (e.Key == Key.S)
+				{
+					LeaderBoid.Velocity -= LeaderBoid.Up * (Boid.MAX_SPEED / 20);
+				}
+				if (e.Key == Key.A)
+				{
+					LeaderBoid.Velocity -= LeaderBoid.Right * (Boid.MAX_SPEED / 20);
+				}
+				if (e.Key == Key.D)
+				{
+					LeaderBoid.Velocity += LeaderBoid.Right * (Boid.MAX_SPEED / 20);
+				}
+			}
+
 			if (e.Key == Key.P)
 			{
-				if (State == GameState.Active)
-					State = GameState.Paused;
+				// toggle auto/manual leader control
+				if (e.Shift)
+				{
+					autoPilot = !autoPilot;
+				}
 				else
-					State = GameState.Active;
+				{
+					// pause/unpause
+					if (State == GameState.Active)
+						State = GameState.Paused;
+					else
+						State = GameState.Active;
+				}
 			}
 
 			// quit
@@ -293,6 +345,30 @@ namespace boids
 			Camera.ProcessMouseScroll(e.Delta);
 		}
 
+		private void OnMouseDown(object sender, MouseButtonEventArgs e)
+		{
+			if (e.Button == MouseButton.Left)
+			{
+				if (State == GameState.Active)
+					State = GameState.Paused;
+				else
+					State = GameState.Active;
+			}
+			if (e.Button == MouseButton.Right)
+			{
+				if (State == GameState.Active)
+				{
+					State = GameState.Paused;
+					LogDebugInfo();
+				}
+				else
+				{
+					State = GameState.Active;
+					shouldPause = true;
+				}
+			}
+		}
+
 		private void UpdateFlockMiddle()
 		{
 			FlockMiddlePos = Vector3.Zero;
@@ -314,6 +390,41 @@ namespace boids
 				boidZ += 200 * Tower.Radius;
 
 			return new Vector3(boidX, boidY, boidZ);
+		}
+
+		private void LogDebugInfo()
+		{
+			Console.WriteLine("==============================================================");
+			Console.WriteLine("DEBUG INFO: ");
+			Console.WriteLine("Boid Count: " + Boids.Count);
+			Console.WriteLine("Separation: " + Boid.Sep);
+			Console.WriteLine("Alignment: " + Boid.Ali);
+			Console.WriteLine("Cohesion: " + Boid.Coh);
+			Console.WriteLine("Follow Leader: " + Boid.Goal);
+			Console.WriteLine("Max Boid Speed: " + Boid.MAX_SPEED);
+			Console.WriteLine("Leader Boid:");
+			Console.WriteLine("    Position: " + LeaderBoid.Position);
+			Console.WriteLine("    Velocity: " + LeaderBoid.Velocity);
+			Console.WriteLine("    Size: " + LeaderBoid.Size);
+			Console.WriteLine("    Front: " + LeaderBoid.Front);
+			Console.WriteLine("    Right: " + LeaderBoid.Right);
+			Console.WriteLine("    Pitch: " + LeaderBoid.Pitch);
+			Console.WriteLine("    Yaw: " + LeaderBoid.Yaw);
+			Console.WriteLine("");
+			Console.WriteLine("Boids: ");
+			foreach (Boid b in Boids.OfType<Boid>())
+			{
+				Console.WriteLine("Boid");
+				Console.WriteLine("    Position: " + b.Position);
+				Console.WriteLine("    Velocity: " + b.Velocity);
+				Console.WriteLine("    Size: " + b.Size);
+				Console.WriteLine("    Front: " + b.Front);
+				Console.WriteLine("    Right: " + b.Right);
+				Console.WriteLine("    Pitch: " + b.Pitch);
+				Console.WriteLine("    Yaw: " + b.Yaw);
+			}
+			Console.WriteLine("==============================================================");
+			Console.WriteLine("");
 		}
 	}
 }
