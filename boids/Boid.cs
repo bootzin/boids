@@ -6,14 +6,14 @@ namespace boids
 {
 	public class Boid : EngineObject
 	{
-		public bool Sep { get; set; } = true;
-		public bool Goal { get; set; } = true;
-		public bool Coh { get; set; } = true;
-		public bool Ali { get; set; } = true;
+		public static bool Sep { get; set; } = true;
+		public static bool Goal { get; set; } = true;
+		public static bool Coh { get; set; } = true;
+		public static bool Ali { get; set; } = true;
 		public Vector3 Front { get; set; }
 		public Vector3 Up { get; set; }
 		public Vector3 Right { get; set; }
-		public static int MAX_SPEED { get; set; } = 120;
+		public static int MAX_SPEED { get; set; } = 220;
 
 		public Boid(Model model, Vector3 position, Vector3 size, Vector3 front, Vector3? up = null, Vector3? color = null)
 		{
@@ -33,7 +33,7 @@ namespace boids
 
 		public void Move(List<EngineObject> objects, float dt)
 		{
-			Vector3 separation = Separation(objects, Sep);
+			Vector3 separation = Separation(Sep);
 			Vector3 cohesion = Cohesion(objects, Coh);
 			Vector3 alignment = Alignment(objects, Ali);
 			Vector3 objective = Objective(Goal);
@@ -47,7 +47,7 @@ namespace boids
 			Position += Velocity * dt;
 
 			Front = (Position - oldPos).Normalized();
-			Pitch = Math.Clamp(Utils.Rad2Deg(Math.Asin(-Front.Y)), -75, 75);
+			Pitch = Math.Clamp(Utils.Rad2Deg(Math.Asin(-Front.Y)), -89, 89);
 			Yaw = Math.Clamp(Utils.Rad2Deg(Math.Atan2(Front.X, Front.Z)), -179, 179);
 
 			Right = Vector3.Cross(Front, Engine.Camera.WorldUp).Normalized();
@@ -74,19 +74,27 @@ namespace boids
 		{
 			if (!goal)
 				return Vector3.Zero;
-			return ((objective ?? (Engine.LeaderBoid.Position + (Engine.LeaderBoid.Size / 2))) - (Position + (Size / 2))) / 50;
+			if (objective == null)
+				return (Engine.LeaderBoid.Position + (Engine.LeaderBoid.Size / 2) - (Position + (Size / 2))) / Engine.Boids.Count;
+			else
+				return (objective.Value - (Position + (Size / 2))) / 50;
 		}
 
-		private Vector3 Separation(List<EngineObject> objects, bool sep)
+		private Vector3 Separation(bool sep)
 		{
 			if (!sep)
 				return Vector3.Zero;
 			Vector3 ret = Vector3.Zero;
-			objects.ForEach(obj =>
+			var objectsToAvoid = new List<EngineObject>();
+			objectsToAvoid.AddRange(Engine.Boids);
+			objectsToAvoid.Add(Engine.LeaderBoid);
+			objectsToAvoid.ForEach(obj =>
 			{
-				if (Vector3.Distance(obj.Position, Position) < 200)
-					ret -= (obj.Position - Position) / 15;
+				if ((obj.Position - Position).LengthFast < (obj.Size * 10).LengthFast)
+					ret -= (obj.Position - Position) / 10;
 			});
+			if ((Engine.Tower.Position - Position).LengthFast < (Engine.Tower.Size * 200).LengthFast)
+				ret -= (Engine.Tower.Position - Position) / 10;
 			return ret;
 		}
 
@@ -96,7 +104,7 @@ namespace boids
 				return Vector3.Zero;
 			Vector3 ret = Vector3.Zero;
 			objects.ForEach(obj => ret += obj.Position);
-			ret /= (objects.Count - 1);
+			ret /= (Engine.Boids.Count - 1);
 			return (ret - Position) / 100;
 		}
 
@@ -106,7 +114,7 @@ namespace boids
 				return Vector3.Zero;
 			Vector3 ret = Vector3.Zero;
 			objects.ForEach(obj => ret += obj.Velocity);
-			ret /= (objects.Count - 1);
+			ret /= (Engine.Boids.Count - 1);
 			return (ret - Velocity) / 8;
 		}
 

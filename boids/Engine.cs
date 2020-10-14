@@ -15,11 +15,14 @@ namespace boids
 		private float lastY;
 		private bool firstMouse = true;
 		private bool directionalLight;
+		private bool fogEnabled = true;
 		private float deltaTime;
+		private float cumulativeTime;
 		private float currentFishModelIndex;
 		private Vector3 leaderTarget = Vector3.Zero;
+		private GameState State = GameState.Active;
 
-		public const int GroundSize = 4000;
+		public const int GroundSize = 6000;
 		public const int GroundLevel = -20;
 		public const int MinHeight = 200;
 		public const int MaxHeight = 1500;
@@ -39,6 +42,7 @@ namespace boids
 		{
 			GL.Viewport(0, 0, width, height);
 
+			// done in fragment shader, can be turned off
 			GL.Enable(EnableCap.Blend);
 			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
@@ -53,6 +57,9 @@ namespace boids
 			MouseWheel += OnMouseWheel;
 			MouseMove += OnMouseMove;
 
+			WindowState = WindowState.Maximized;
+			CursorVisible = false;
+			CursorGrabbed = false;
 			Init();
 		}
 
@@ -77,7 +84,7 @@ namespace boids
 
 			Renderer3D = new Renderer3D();
 
-			Tower = new Tower(towerModel, Vector3.Zero, 1, 3);
+			Tower = new Tower(towerModel, Vector3.Zero, 1, 2);
 
 			Floor = new EngineObject()
 			{
@@ -89,11 +96,12 @@ namespace boids
 			Sun = new EngineObject()
 			{
 				Model = sunModel,
-				Position = new Vector3(200, 1.5f * MaxHeight, -300),
+				Position = new Vector3(200, 1.5f * MaxHeight, -1100),
 				Size = Vector3.One * 200
 			};
 
 			Tower.Position += new Vector3(0, Tower.Size.Y + GroundLevel, 0);
+
 
 			EngineObjects.Add(Tower);
 			EngineObjects.Add(Floor);
@@ -105,14 +113,14 @@ namespace boids
 			for (int i = 0; i < 25; i++)
 				Boids.Add(new Boid(boidModels[0], GetRandomPosition(), Vector3.One * Utils.Random.Next(10, 16), GetRandomDir()));
 
-			for (int i = 0; i < 50; i++)
+			for (int i = 0; i < 100; i++)
 			{
-				var size = new Vector3(30000, Utils.Random.Next(30, 40) * 1000, 30000);
+				var size = new Vector3(30000, Utils.Random.Next(20, 50) * 1000, 30000);
 				var weed = new EngineObject()
 				{
 					Model = weedModel,
 					Size = size,
-					Position = new Vector3(GetRandomPosition()) { Y = GroundLevel }
+					Position = new Vector3(GetRandomPosition(GroundSize)) { Y = GroundLevel }
 				};
 				EngineObjects.Add(weed);
 			}
@@ -127,16 +135,21 @@ namespace boids
 		protected override void OnUpdateFrame(FrameEventArgs e)
 		{
 			base.OnUpdateFrame(e);
-			deltaTime = (float)e.Time;
+			if (State == GameState.Active)
+			{
+				deltaTime = (float)e.Time;
+				cumulativeTime += deltaTime;
+				currentFishModelIndex += 24 * deltaTime;
 
-			if (leaderTarget == Vector3.Zero || Vector3.Distance(LeaderBoid.Position, leaderTarget) < 200)
-				leaderTarget =  GetRandomPosition();
+				if (leaderTarget == Vector3.Zero || Vector3.Distance(LeaderBoid.Position, leaderTarget) < 2 * Boid.MAX_SPEED)
+					leaderTarget = GetRandomPosition();
 
-			LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
+				LeaderBoid.MoveToPoint(leaderTarget, deltaTime);
 
-			Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime));
-			UpdateFlockMiddle();
-			Camera.Update();
+				Boids.ForEach(boid => ((Boid)boid).Move(Boids.Where(b => b != boid).ToList(), deltaTime));
+				UpdateFlockMiddle();
+				Camera.Update();
+			}
 			ProcessEvents();
 		}
 
@@ -147,21 +160,16 @@ namespace boids
 			var currBoidModel = ResourceManager.GetModel("fish_0000" + ((((int)currentFishModelIndex) % 39) + 10));
 			Boids.ForEach(boid => boid.Model = currBoidModel);
 			LeaderBoid.Model = currBoidModel;
-			currentFishModelIndex += .3333f;
-
-			GL.ClearColor(.1f, .1f, .1f, 1);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			Renderer3D.RenderShadows(EngineObjects, ResourceManager.GetShader("shadow"), Width, Height, directionalLight);
 
 			GL.ClearColor(60 / 255f, 100 / 255f, 120 / 255f, 1);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Width, Height, directionalLight);
+			ResourceManager.GetShader("textured").SetFloat("inputTime", cumulativeTime, true);
+			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Width, Height, directionalLight, fogEnabled);
 
 			//Renderer3D.DrawSun(ResourceManager.GetShader("light"), (float)Width / Height);
-
-			Renderer3D.RenderCaustics();
 
 			SwapBuffers();
 		}
@@ -170,14 +178,17 @@ namespace boids
 		{
 			base.OnKeyDown(e);
 
-			if (e.Key == Key.W)
+			// Move the camera when in free mode
+			if (e.Key == Key.I)
 				Camera.ProcessKeyboard(CameraMovement.FORWARD, deltaTime);
-			if (e.Key == Key.S)
+			if (e.Key == Key.K)
 				Camera.ProcessKeyboard(CameraMovement.BACKWARD, deltaTime);
-			if (e.Key == Key.A)
+			if (e.Key == Key.J)
 				Camera.ProcessKeyboard(CameraMovement.LEFT, deltaTime);
-			if (e.Key == Key.D)
+			if (e.Key == Key.L)
 				Camera.ProcessKeyboard(CameraMovement.RIGHT, deltaTime);
+
+			// change camera type
 			if (e.Key == Key.Number1)
 				Camera.SetCameraType(CameraType.Behind);
 			if (e.Key == Key.Number2)
@@ -186,11 +197,13 @@ namespace boids
 				Camera.SetCameraType(CameraType.Tower);
 			if (e.Key == Key.Number4)
 				Camera.SetCameraType(CameraType.Free);
+
+			// add boids/increase boid speed
 			if (e.Key == Key.Plus)
 			{
 				if (e.Shift)
 				{
-					Boid.MAX_SPEED = Math.Min(150, Boid.MAX_SPEED + 10); // boids fail to reach their target with speeds higher than 150
+					Boid.MAX_SPEED = Math.Min(1200, Boid.MAX_SPEED + 10); // keeping max speed sane
 				}
 				else
 				{
@@ -199,6 +212,8 @@ namespace boids
 					EngineObjects.Add(b);
 				}
 			}
+
+			//remove boids/decrease boid speed
 			if (e.Key == Key.Minus)
 			{
 				if (e.Shift)
@@ -213,9 +228,17 @@ namespace boids
 					EngineObjects.Remove(b);
 				}
 			}
-			if (e.Key == Key.T)
-				directionalLight = !directionalLight; // can mess up with shadows
 
+			// toggle light mode
+			// can mess up with shadows
+			if (e.Key == Key.T)
+				directionalLight = !directionalLight;
+
+			// enable/disable fog
+			if (e.Key == Key.F)
+				fogEnabled = !fogEnabled;
+
+			// move light source, mostly for testing
 			if (e.Key == Key.Left)
 				Sun.Position -= Vector3.UnitZ * 50;
 			if (e.Key == Key.Right)
@@ -225,6 +248,26 @@ namespace boids
 			if (e.Key == Key.Up)
 				Sun.Position += Vector3.UnitY * 50;
 
+			// enable/disable boid movement rules
+			if (e.Key == Key.S)
+				Boid.Sep = !Boid.Sep;
+			if (e.Key == Key.C)
+				Boid.Coh = !Boid.Coh;
+			if (e.Key == Key.A)
+				Boid.Ali = !Boid.Ali;
+			if (e.Key == Key.G)
+				Boid.Goal = !Boid.Goal;
+
+			// pause/unpause
+			if (e.Key == Key.P)
+			{
+				if (State == GameState.Active)
+					State = GameState.Paused;
+				else
+					State = GameState.Active;
+			}
+
+			// quit
 			if (e.Key == Key.Q || e.Key == Key.Escape)
 				Close();
 		}
@@ -259,16 +302,16 @@ namespace boids
 
 		private Vector3 GetRandomDir() => new Vector3(Utils.Random.Next(1000) / 1000f, Utils.Random.Next(1000) / 1000f, Utils.Random.Next(1000) / 1000f);
 
-		private Vector3 GetRandomPosition()
+		private Vector3 GetRandomPosition(int? xzConstraint = null)
 		{
-			float boidX = Utils.Random.Next(GroundSize) - (GroundSize / 2);
+			float boidX = Utils.Random.Next(xzConstraint ?? (GroundSize * 2 / 3)) - (GroundSize / 3);
 			float boidY = Utils.Random.Next(2 * MinHeight, (MaxHeight - MinHeight) / 2);
-			float boidZ = Utils.Random.Next(GroundSize) - (GroundSize / 2);
+			float boidZ = Utils.Random.Next(xzConstraint ?? (GroundSize * 2 / 3)) - (GroundSize / 3);
 
 			if (Math.Abs(boidX) < Tower.Radius)
-				boidX += 2 * Tower.Radius;
+				boidX += 200 * Tower.Radius;
 			if (Math.Abs(boidZ) < Tower.Radius)
-				boidZ += 2 * Tower.Radius;
+				boidZ += 200 * Tower.Radius;
 
 			return new Vector3(boidX, boidY, boidZ);
 		}

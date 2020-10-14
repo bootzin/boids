@@ -35,7 +35,7 @@ namespace boids
 
 		private bool Movable;
 		private bool Orientable;
-		private Vector3 TowerCameraPosition = new Vector3(-150, 1000, 1);
+		private Vector3 TowerCameraPosition = new Vector3(-150, 333 * Engine.Tower.Height, 1);
 		private const int CameraDistanceFactor = 10;
 		private const int BoidDistance = 200;
 
@@ -120,7 +120,7 @@ namespace boids
 			{
 				Vector3 right = leader.Right;
 
-				right *= BoidDistance + (CameraDistanceFactor * Math.Max((Engine.Boids.Count + 1), 50));
+				right *= BoidDistance + (CameraDistanceFactor * Math.Min(Math.Max((Engine.Boids.Count + 1), 50), 75));
 
 				Position = leader.Position - right;
 				Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);
@@ -128,7 +128,7 @@ namespace boids
 			}
 
 			Vector3 front = leader.Front;
-			front *= BoidDistance + (CameraDistanceFactor * 2 * Math.Max((Engine.Boids.Count + 1), 50));
+			front *= BoidDistance + (CameraDistanceFactor * 2 * Math.Min(Math.Max((Engine.Boids.Count + 1), 50), 75));
 
 			Position = leader.Position - front;
 			Position = new Vector3(Position.X, Math.Clamp(Position.Y, Engine.MinHeight, Engine.MaxHeight), Position.Z);

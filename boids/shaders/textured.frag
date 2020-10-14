@@ -1,4 +1,8 @@
 ﻿#version 330 core
+
+#define TAU 6.28318530718
+#define MAX_ITER 5
+
 out vec4 FragColor;
 
 in vec2 TexCoords;
@@ -12,7 +16,8 @@ uniform vec3 lightColor;
 uniform vec2 attenuation; // linear and quadratic (constant is always 1)
 uniform vec2 cutOff; //inner, outer
 
-uniform vec3 viewPos; 
+uniform vec3 viewPos;
+uniform float inputTime;
 
 //fog
 uniform vec3 fogColor;
@@ -22,6 +27,31 @@ uniform bool fogEnabled;
 uniform sampler2D texture_diffuse1;
 uniform sampler2D texture_specular1;
 uniform sampler2D shadowMap;
+
+vec3 caustic(vec2 uv)
+{
+    vec2 p = mod(uv*TAU, TAU)-250.0;
+    float time = inputTime * .5+23.0;
+
+	vec2 i = vec2(p);
+	float c = 1.0;
+	float inten = .005;
+
+	for (int n = 0; n < MAX_ITER; n++) 
+	{
+		float t = time * (1.0 - (3.5 / float(n+1)));
+		i = p + vec2(cos(t - i.x) + sin(t + i.y), sin(t - i.y) + cos(t + i.x));
+		c += 1.0/length(vec2(p.x / (sin(i.x+t)/inten),p.y / (cos(i.y+t)/inten)));
+	}
+    
+	c /= float(MAX_ITER);
+	c = 1.17-pow(c, 1.4);
+	vec3 color = vec3(pow(abs(c), 8.0));
+    color = clamp(color + vec3(0.0, 0.35, 0.5), 0.0, 1.0);
+    color = mix(color, vec3(1.0,1.0,1.0),0.3);
+    
+    return color;
+}
 
 float GetFogFactor(float fogCoordinate) 
 {
@@ -87,6 +117,7 @@ void main()
 
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor * texDiffColor.rgb * diffuseStrength;
+    diffuse *= caustic(vec2(mix(FragPos.x,FragPos.y,0.8) / 160.0,mix(FragPos.z,FragPos.y,0.8) / 160.0)*1.1);
     
     // specular
     float specularStrength = 0.4;
