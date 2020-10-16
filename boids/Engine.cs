@@ -133,6 +133,9 @@ namespace boids
 			EngineObjects.AddRange(Boids);
 
 			Camera = new Camera(GetRandomPosition());
+
+			var underwater = ResourceManager.LoadSound("resources/sounds/underwater.mp3", "underwater");
+			SoundEngine.Instance.PlaySound(underwater);
 		}
 
 		protected override void OnUpdateFrame(FrameEventArgs e)
