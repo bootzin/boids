@@ -102,7 +102,7 @@ namespace boids
 			GL.Viewport(0, 0, ShadowResolution, ShadowResolution);
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, depthMapFBO);
 			GL.Clear(ClearBufferMask.DepthBufferBit);
-			DrawModels(objects, shader, width, height, directionalLight); // shadows don't work very well with directional lights
+			DrawModels(objects, shader, width, height, directionalLight);
 			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 
 			GL.Viewport(0, 0, width, height);

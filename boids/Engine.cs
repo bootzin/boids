@@ -113,7 +113,7 @@ namespace boids
 
 			EngineObjects.Add(LeaderBoid);
 
-			for (int i = 0; i < 25; i++)
+			for (int i = 0; i < 50; i++)
 				Boids.Add(new Boid(boidModels[0], GetRandomPosition(), Vector3.One * Utils.Random.Next(10, 16), GetRandomDir()));
 
 			for (int i = 0; i < 100; i++)
