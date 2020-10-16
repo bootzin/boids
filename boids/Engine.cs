@@ -134,7 +134,7 @@ namespace boids
 
 			Camera = new Camera(GetRandomPosition());
 
-			var underwater = ResourceManager.LoadSound("resources/sounds/underwater.mp3", "underwater");
+			var underwater = ResourceManager.LoadSound("resources/sounds/underwater.mp3", "underwater", true);
 			SoundEngine.Instance.PlaySound(underwater);
 		}
 
