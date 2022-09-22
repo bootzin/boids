@@ -46,7 +46,7 @@ namespace boids
 			shader.SetVector3f("viewPos", Engine.Camera.Position);
 			shader.SetMatrix4("lightSpaceMatrix", lightSpaceMatrix);
 
-			shader.SetVector3f("fogColor", new Vector3(60 / 255f, 100 / 255f, 120 / 255f));
+			shader.SetVector3f("fogColor", new Vector3(60, 100, 120) / 255f);
 			shader.SetInteger("fogEnabled", fogEnabled ? 1 : 0);
 			shader.SetFloat("fogDensity", .00065f);
 

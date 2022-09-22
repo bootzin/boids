@@ -44,7 +44,6 @@ namespace boids
 		{
 			GL.Viewport(0, 0, width, height);
 
-			// done in fragment shader, can be turned off
 			GL.Enable(EnableCap.Blend);
 			GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
