@@ -1,7 +1,8 @@
-﻿using OpenTK;
-using OpenTK.Graphics;
-using OpenTK.Graphics.OpenGL;
-using OpenTK.Input;
+﻿using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,7 +41,7 @@ namespace boids
 
 		public Renderer3D Renderer3D { get; set; }
 
-		public Engine(int width, int height, string title) : base(width, height, new GraphicsMode(new ColorFormat(32), 16, 0, 4, new ColorFormat(0), 2, false), title)
+		public Engine(int width, int height, string title) : base(GameWindowSettings.Default, NativeWindowSettings.Default) //width, height, new GraphicsMode(new ColorFormat(32), 16, 0, 4, new ColorFormat(0), 2, false), title
 		{
 			GL.Viewport(0, 0, width, height);
 
@@ -54,14 +55,13 @@ namespace boids
 
 			GL.Enable(EnableCap.Multisample);
 
-			Resize += (_, e) => GL.Viewport(0, 0, Width, Height);
+			Resize += (_) => GL.Viewport(0, 0, Size.X, Size.Y);
 			MouseWheel += OnMouseWheel;
 			MouseMove += OnMouseMove;
 			MouseDown += OnMouseDown;
 
 			WindowState = WindowState.Maximized;
-			CursorVisible = false;
-			CursorGrabbed = false;
+			CursorState = CursorState.Hidden;
 			Init();
 		}
 
@@ -171,7 +171,7 @@ namespace boids
 					LogDebugInfo();
 				}
 			}
-			ProcessEvents();
+			ProcessWindowEvents(false);
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs e)
@@ -182,13 +182,13 @@ namespace boids
 			Boids.ForEach(boid => boid.Model = currBoidModel);
 			LeaderBoid.Model = currBoidModel;
 
-			Renderer3D.RenderShadows(EngineObjects, ResourceManager.GetShader("shadow"), Width, Height, directionalLight);
+			Renderer3D.RenderShadows(EngineObjects, ResourceManager.GetShader("shadow"), Size.X, Size.Y, directionalLight);
 
 			GL.ClearColor(60 / 255f, 100 / 255f, 120 / 255f, 1);
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 			ResourceManager.GetShader("textured").SetFloat("inputTime", cumulativeTime, true);
-			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Width, Height, directionalLight, fogEnabled);
+			Renderer3D.DrawModels(EngineObjects, ResourceManager.GetShader("textured"), Size.X, Size.Y, directionalLight, fogEnabled);
 
 			//Renderer3D.DrawSun(ResourceManager.GetShader("light"), (float)Width / Height);
 
@@ -200,27 +200,27 @@ namespace boids
 			base.OnKeyDown(e);
 
 			// Move the camera when in free mode
-			if (e.Key == Key.I)
+			if (e.Key == Keys.I)
 				Camera.ProcessKeyboard(CameraMovement.FORWARD, deltaTime);
-			if (e.Key == Key.K)
+			if (e.Key == Keys.K)
 				Camera.ProcessKeyboard(CameraMovement.BACKWARD, deltaTime);
-			if (e.Key == Key.J)
+			if (e.Key == Keys.J)
 				Camera.ProcessKeyboard(CameraMovement.LEFT, deltaTime);
-			if (e.Key == Key.L)
+			if (e.Key == Keys.L)
 				Camera.ProcessKeyboard(CameraMovement.RIGHT, deltaTime);
 
 			// change camera type
-			if (e.Key == Key.Number1)
+			if (e.Key == Keys.D1)
 				Camera.SetCameraType(CameraType.Behind);
-			if (e.Key == Key.Number2)
+			if (e.Key == Keys.D2)
 				Camera.SetCameraType(CameraType.Parallel);
-			if (e.Key == Key.Number3)
+			if (e.Key == Keys.D3)
 				Camera.SetCameraType(CameraType.Tower);
-			if (e.Key == Key.Number4)
+			if (e.Key == Keys.D4)
 				Camera.SetCameraType(CameraType.Free);
 
 			// add boids/increase boid speed
-			if (e.Key == Key.Plus)
+			if (e.Key == Keys.Equal)
 			{
 				if (e.Shift)
 				{
@@ -237,7 +237,7 @@ namespace boids
 			}
 
 			//remove boids/decrease boid speed
-			if (e.Key == Key.Minus)
+			if (e.Key == Keys.Minus)
 			{
 				if (e.Shift)
 				{
@@ -256,55 +256,55 @@ namespace boids
 
 			// toggle light mode
 			// can mess up with shadows
-			if (e.Key == Key.T)
+			if (e.Key == Keys.T)
 				directionalLight = !directionalLight;
 
 			// enable/disable fog
-			if (e.Key == Key.F)
+			if (e.Key == Keys.F)
 				fogEnabled = !fogEnabled;
 
 			// move light source, mostly for testing
-			if (e.Key == Key.Left)
+			if (e.Key == Keys.Left)
 				Sun.Position -= Vector3.UnitZ * 50;
-			if (e.Key == Key.Right)
+			if (e.Key == Keys.Right)
 				Sun.Position += Vector3.UnitZ * 50;
-			if (e.Key == Key.Down)
+			if (e.Key == Keys.Down)
 				Sun.Position -= Vector3.UnitY * 50;
-			if (e.Key == Key.Up)
+			if (e.Key == Keys.Up)
 				Sun.Position += Vector3.UnitY * 50;
 
 			// enable/disable boid movement rules
-			if (e.Key == Key.F1)
+			if (e.Key == Keys.F1)
 				Boid.Sep = !Boid.Sep;
-			if (e.Key == Key.F2)
+			if (e.Key == Keys.F2)
 				Boid.Coh = !Boid.Coh;
-			if (e.Key == Key.F3)
+			if (e.Key == Keys.F3)
 				Boid.Ali = !Boid.Ali;
-			if (e.Key == Key.F4)
+			if (e.Key == Keys.F4)
 				Boid.Goal = !Boid.Goal;
 
 			// move leader boid when autopilot is disabled
 			if (!autoPilot)
 			{
-				if (e.Key == Key.W)
+				if (e.Key == Keys.W)
 				{
 					LeaderBoid.Velocity += LeaderBoid.Up * (Boid.MAX_SPEED / 20);
 				}
-				if (e.Key == Key.S)
+				if (e.Key == Keys.S)
 				{
 					LeaderBoid.Velocity -= LeaderBoid.Up * (Boid.MAX_SPEED / 20);
 				}
-				if (e.Key == Key.A)
+				if (e.Key == Keys.A)
 				{
 					LeaderBoid.Velocity -= LeaderBoid.Right * (Boid.MAX_SPEED / 20);
 				}
-				if (e.Key == Key.D)
+				if (e.Key == Keys.D)
 				{
 					LeaderBoid.Velocity += LeaderBoid.Right * (Boid.MAX_SPEED / 20);
 				}
 			}
 
-			if (e.Key == Key.P)
+			if (e.Key == Keys.P)
 			{
 				// toggle auto/manual leader control
 				if (e.Shift)
@@ -322,11 +322,11 @@ namespace boids
 			}
 
 			// quit
-			if (e.Key == Key.Q || e.Key == Key.Escape)
+			if (e.Key == Keys.Q || e.Key == Keys.Escape)
 				Close();
 		}
 
-		private void OnMouseMove(object sender, MouseMoveEventArgs e)
+		protected override void OnMouseMove(MouseMoveEventArgs e)
 		{
 			if (firstMouse)
 			{
@@ -342,12 +342,12 @@ namespace boids
 			Camera.ProcessMouse(xOff, yOff);
 		}
 
-		private void OnMouseWheel(object sender, MouseWheelEventArgs e)
+		protected override void OnMouseWheel(MouseWheelEventArgs e)
 		{
-			Camera.ProcessMouseScroll(e.Delta);
+			Camera.ProcessMouseScroll(e.OffsetY);
 		}
 
-		private void OnMouseDown(object sender, MouseButtonEventArgs e)
+		protected override void OnMouseDown(MouseButtonEventArgs e)
 		{
 			if (e.Button == MouseButton.Left)
 			{
